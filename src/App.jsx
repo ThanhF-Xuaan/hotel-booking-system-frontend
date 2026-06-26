@@ -10,6 +10,11 @@ import HolidayCalendarView from './features/pricing/components/HolidayCalendarVi
 import RoleView from './features/iam/components/RoleView';
 import PermissionView from './features/iam/components/PermissionView';
 import GuestView from './features/crm/components/GuestView';
+import CatalogItemPage from './features/inventory/catalog-item/components/CatalogItemPage';
+import StaffPage from './features/iam/staff/components/StaffPage';
+import RoomInstancePage from './features/inventory/room-instance/components/RoomInstancePage';
+import HotelRoomTypeListPage from './features/inventory/hotel-room-type/components/HotelRoomTypeListPage';
+import HotelRoomTypeDetailPage from './features/inventory/hotel-room-type/components/HotelRoomTypeDetailPage';
 
 function App() {
   return (
@@ -26,10 +31,15 @@ function App() {
           <Route path="room-types" element={<RoomTypeView />} />
           <Route path="room-beds" element={<RoomBedView />} />
           <Route path="room-features" element={<RoomFeatureView />} />
+          <Route path="room-instances" element={<RoomInstancePage />} />
+          <Route path="hotel-room-types" element={<HotelRoomTypeListPage />} />
+          <Route path="hotel-room-types/:id" element={<HotelRoomTypeDetailPage />} />
+          <Route path="catalog-items" element={<CatalogItemPage />} />
           <Route path="vat-rules" element={<VatRuleView />} />
           <Route path="holiday-calendars" element={<HolidayCalendarView />} />
           <Route path="roles" element={<RoleView />} />
           <Route path="permissions" element={<PermissionView />} />
+          <Route path="staffs" element={<StaffPage />} />
           <Route path="guests" element={<GuestView />} />
         </Route>
 

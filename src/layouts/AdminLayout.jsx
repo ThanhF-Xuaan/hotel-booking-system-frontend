@@ -16,13 +16,18 @@ import {
   Key,
   Users,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Package,
+  UserCog,
+  Grid,
+  Settings
 } from 'lucide-react';
 
 const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const textTitle = 'HOTEL SYSTEM';
   const location = useLocation();
 
   // Navigation items mapping
@@ -31,10 +36,14 @@ const AdminLayout = () => {
     { name: 'Room Types', path: '/admin/room-types', icon: Layers },
     { name: 'Room Beds', path: '/admin/room-beds', icon: Bed },
     { name: 'Room Features', path: '/admin/room-features', icon: Sparkles },
+    { name: 'Room Instances', path: '/admin/room-instances', icon: Grid },
+    { name: 'Hotel Room Types', path: '/admin/hotel-room-types', icon: Settings },
+    { name: 'Catalog Items', path: '/admin/catalog-items', icon: Package },
     { name: 'VAT Rules', path: '/admin/vat-rules', icon: Percent },
     { name: 'Holiday Calendars', path: '/admin/holiday-calendars', icon: Calendar },
     { name: 'Roles', path: '/admin/roles', icon: Shield },
     { name: 'Permissions', path: '/admin/permissions', icon: Key },
+    { name: 'Staff', path: '/admin/staffs', icon: UserCog },
     { name: 'Guests', path: '/admin/guests', icon: Users },
   ];
 

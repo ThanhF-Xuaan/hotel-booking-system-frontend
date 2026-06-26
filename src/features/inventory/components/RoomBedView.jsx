@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, AlertCircle, Loader2 } from 'lucide-react';
 import api from '../../../services/api';
+import { normalizeDimensionString, parseDimensionString } from '../../../utils/dimension';
 
 const RoomBedView = () => {
   const [items, setItems] = useState([]);
@@ -19,7 +20,8 @@ const RoomBedView = () => {
   // Form Fields State
   const [formData, setFormData] = useState({
     name: '',
-    size: '',
+    width: '',
+    height: '',
     status: 'ACTIVE'
   });
 
@@ -46,7 +48,8 @@ const RoomBedView = () => {
     setEditingItem(null);
     setFormData({
       name: '',
-      size: '',
+      width: '',
+      height: '',
       status: 'ACTIVE'
     });
     setErrors({});
@@ -55,10 +58,12 @@ const RoomBedView = () => {
   };
 
   const handleOpenEdit = (bed) => {
+    const parsed = parseDimensionString(bed.size);
     setEditingItem(bed);
     setFormData({
       name: bed.name,
-      size: bed.size || '',
+      width: parsed ? parsed.width.toString() : '',
+      height: parsed ? parsed.height.toString() : '',
       status: bed.status
     });
     setErrors({});
@@ -66,10 +71,47 @@ const RoomBedView = () => {
     setIsModalOpen(true);
   };
 
+  const handleWidthBlur = () => {
+    const val = parseFloat(formData.width);
+    if (isNaN(val) || val <= 0) return;
+    if (val > 10) {
+      // Heuristic centimeter-to-meter conversion
+      setFormData(prev => ({ ...prev, width: (val / 100).toString() }));
+    }
+    setErrors(prev => {
+      const copy = { ...prev };
+      delete copy.width;
+      return copy;
+    });
+  };
+
+  const handleHeightBlur = () => {
+    const val = parseFloat(formData.height);
+    if (isNaN(val) || val <= 0) return;
+    if (val > 10) {
+      // Heuristic centimeter-to-meter conversion
+      setFormData(prev => ({ ...prev, height: (val / 100).toString() }));
+    }
+    setErrors(prev => {
+      const copy = { ...prev };
+      delete copy.height;
+      return copy;
+    });
+  };
+
   const validateForm = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Bed configuration name is required';
-    if (!formData.size.trim()) newErrors.size = 'Bed size is required';
+    
+    const w = parseFloat(formData.width);
+    const h = parseFloat(formData.height);
+
+    if (isNaN(w) || w <= 0) {
+      newErrors.width = 'Width must be a positive number';
+    }
+    if (isNaN(h) || h <= 0) {
+      newErrors.height = 'Height must be a positive number';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -82,9 +124,28 @@ const RoomBedView = () => {
     setIsLoading(true);
     setSubmitError(null);
     try {
+      let wVal = parseFloat(formData.width);
+      let hVal = parseFloat(formData.height);
+      
+      // Apply heuristic conversion just in case onBlur was bypassed
+      if (wVal > 10) wVal = wVal / 100;
+      if (hVal > 10) hVal = hVal / 100;
+
+      // Format float meter numbers into middle-m standard format (e.g. 1.8 -> 1m8, 2 -> 2m, 2.05 -> 2m05)
+      const formatDimension = (val) => {
+        const str = (Math.round(val * 1000) / 1000).toString();
+        const dotIdx = str.indexOf('.');
+        if (dotIdx === -1) return `${str}m`;
+        const whole = str.substring(0, dotIdx);
+        const frac = str.substring(dotIdx + 1);
+        return `${whole}m${frac}`;
+      };
+
+      const sizeString = `${formatDimension(wVal)} x ${formatDimension(hVal)}`;
+
       const payload = {
         name: formData.name.trim(),
-        size: formData.size.trim(),
+        size: sizeString,
         status: formData.status
       };
 
@@ -302,27 +363,57 @@ const RoomBedView = () => {
                 )}
               </div>
 
-              {/* Bed Size */}
-              <div>
-                <label htmlFor="bed-size" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
-                  Size Dimensions *
-                </label>
-                <input
-                  type="text"
-                  id="bed-size"
-                  value={formData.size}
-                  onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-600
-                    ${errors.size ? 'border-red-600 focus:border-red-600' : 'border-neutral-300 focus:border-black'}
-                  `}
-                  placeholder="E.g., 180x200cm or 100x200cm"
-                />
-                {errors.size && (
-                  <p className="mt-1 text-xs text-red-605 flex items-center space-x-1 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{errors.size}</span>
-                  </p>
-                )}
+              {/* Width & Height Dimensions */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="bed-width" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
+                    Width (m) *
+                  </label>
+                  <input
+                    type="number"
+                    id="bed-width"
+                    step="0.01"
+                    min="0.1"
+                    value={formData.width}
+                    onChange={(e) => setFormData({ ...formData, width: e.target.value })}
+                    onBlur={handleWidthBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-600
+                      ${errors.width ? 'border-red-600 focus:border-red-600' : 'border-neutral-300 focus:border-black'}
+                    `}
+                    placeholder="E.g., 1.8 or 180"
+                  />
+                  {errors.width && (
+                    <p className="mt-1 text-xs text-red-600 flex items-center space-x-1 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{errors.width}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="bed-height" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
+                    Height / Length (m) *
+                  </label>
+                  <input
+                    type="number"
+                    id="bed-height"
+                    step="0.01"
+                    min="0.1"
+                    value={formData.height}
+                    onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                    onBlur={handleHeightBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-600
+                      ${errors.height ? 'border-red-600 focus:border-red-600' : 'border-neutral-300 focus:border-black'}
+                    `}
+                    placeholder="E.g., 2.0 or 200"
+                  />
+                  {errors.height && (
+                    <p className="mt-1 text-xs text-red-600 flex items-center space-x-1 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{errors.height}</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Status */}
