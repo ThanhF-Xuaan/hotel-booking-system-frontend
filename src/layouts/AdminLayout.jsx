@@ -20,7 +20,10 @@ import {
   Package,
   UserCog,
   Grid,
-  Settings
+  Settings,
+  Tag,
+  Megaphone,
+  Sliders
 } from 'lucide-react';
 
 const AdminLayout = () => {
@@ -41,6 +44,12 @@ const AdminLayout = () => {
     { name: 'Catalog Items', path: '/admin/catalog-items', icon: Package },
     { name: 'VAT Rules', path: '/admin/vat-rules', icon: Percent },
     { name: 'Holiday Calendars', path: '/admin/holiday-calendars', icon: Calendar },
+    { name: 'Pricing Rules', path: '/admin/pricing-rules', icon: Tag },
+    { name: 'Campaigns', path: '/admin/campaigns', icon: Megaphone },
+    { name: 'Discount Rules', path: '/admin/discount-rules', icon: Percent },
+    { name: 'Surcharge Rules', path: '/admin/surcharge-rules', icon: Tag },
+    { name: 'Pricing Rule Types', path: '/admin/pricing-rule-types', icon: Sliders },
+    { name: 'Discount Rule Types', path: '/admin/discount-rule-types', icon: Sliders },
     { name: 'Roles', path: '/admin/roles', icon: Shield },
     { name: 'Permissions', path: '/admin/permissions', icon: Key },
     { name: 'Staff', path: '/admin/staffs', icon: UserCog },

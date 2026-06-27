@@ -7,6 +7,12 @@ import RoomBedView from './features/inventory/components/RoomBedView';
 import RoomFeatureView from './features/inventory/components/RoomFeatureView';
 import VatRuleView from './features/pricing/components/VatRuleView';
 import HolidayCalendarView from './features/pricing/components/HolidayCalendarView';
+import PricingRulePage from './features/pricing/pricing-rule/components/PricingRulePage';
+import CampaignPage from './features/pricing/campaign/components/CampaignPage';
+import DiscountRulePage from './features/pricing/discount-rule/components/DiscountRulePage';
+import SurchargeRulePage from './features/pricing/surcharge-rule/components/SurchargeRulePage';
+import PricingRuleTypePage from './features/pricing/pricing-rule-type/components/PricingRuleTypePage';
+import DiscountRuleTypePage from './features/pricing/discount-rule-type/components/DiscountRuleTypePage';
 import RoleView from './features/iam/components/RoleView';
 import PermissionView from './features/iam/components/PermissionView';
 import GuestView from './features/crm/components/GuestView';
@@ -37,6 +43,12 @@ function App() {
           <Route path="catalog-items" element={<CatalogItemPage />} />
           <Route path="vat-rules" element={<VatRuleView />} />
           <Route path="holiday-calendars" element={<HolidayCalendarView />} />
+          <Route path="pricing-rules" element={<PricingRulePage />} />
+          <Route path="campaigns" element={<CampaignPage />} />
+          <Route path="discount-rules" element={<DiscountRulePage />} />
+          <Route path="surcharge-rules" element={<SurchargeRulePage />} />
+          <Route path="pricing-rule-types" element={<PricingRuleTypePage />} />
+          <Route path="discount-rule-types" element={<DiscountRuleTypePage />} />
           <Route path="roles" element={<RoleView />} />
           <Route path="permissions" element={<PermissionView />} />
           <Route path="staffs" element={<StaffPage />} />
