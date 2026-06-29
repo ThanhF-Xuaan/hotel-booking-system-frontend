@@ -21,6 +21,8 @@ import StaffPage from './features/iam/staff/components/StaffPage';
 import RoomInstancePage from './features/inventory/room-instance/components/RoomInstancePage';
 import HotelRoomTypeListPage from './features/inventory/hotel-room-type/components/HotelRoomTypeListPage';
 import HotelRoomTypeDetailPage from './features/inventory/hotel-room-type/components/HotelRoomTypeDetailPage';
+import LoginPage from './features/auth/components/LoginPage';
+import ProtectedRoute from './features/auth/components/ProtectedRoute';
 
 function App() {
   return (
@@ -29,8 +31,10 @@ function App() {
         {/* Redirect root domain to admin hotels page */}
         <Route path="/" element={<Navigate to="/admin/hotels" replace />} />
 
+        <Route path="/login" element={<LoginPage />} />
+
         {/* Admin Dashboard Layout and sub-routes */}
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
           {/* Default dashboard tab redirects to hotels */}
           <Route index element={<Navigate to="hotels" replace />} />
           <Route path="hotels" element={<HotelView />} />

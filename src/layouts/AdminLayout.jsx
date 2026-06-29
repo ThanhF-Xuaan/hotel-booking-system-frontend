@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router-dom';
+import { useAuthStore } from '../features/auth/store/authStore';
 import { 
   Building, 
   Layers, 
@@ -32,6 +33,17 @@ const AdminLayout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const textTitle = 'HOTEL SYSTEM';
   const location = useLocation();
+  const { user, logout } = useAuthStore();
+
+  const userInitials = user?.fullName
+    ? user.fullName
+        .split(' ')
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase()
+    : 'US';
 
   // Navigation items mapping
   const navItems = [
@@ -244,11 +256,11 @@ const AdminLayout = () => {
               aria-label="User menu"
             >
               <div className="w-8 h-8 rounded-full bg-red-600 text-white font-bold flex items-center justify-center text-sm shadow-sm">
-                SA
+                {userInitials}
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-xs font-semibold text-neutral-900 leading-tight">Super Admin</p>
-                <p className="text-[10px] text-neutral-500 leading-none">system@hotel.com</p>
+                <p className="text-xs font-semibold text-neutral-900 leading-tight">{user?.fullName || 'User Session'}</p>
+                <p className="text-[10px] text-neutral-500 leading-none">@{user?.username || 'user'}</p>
               </div>
               <ChevronDown className="w-4 h-4 text-neutral-500" />
             </button>
@@ -261,13 +273,13 @@ const AdminLayout = () => {
                 />
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-neutral-200 rounded-md shadow-lg z-20 py-1 text-sm">
                   <div className="px-4 py-2 border-b border-neutral-100">
-                    <p className="font-semibold text-black">Administrator</p>
-                    <p className="text-xs text-neutral-500">System Operator</p>
+                    <p className="font-semibold text-black leading-snug">{user?.fullName || 'User Session'}</p>
+                    <p className="text-xs text-red-600 font-bold uppercase tracking-wider">{user?.role || 'STAFF'}</p>
                   </div>
                   <button
                     onClick={() => {
                       setIsProfileOpen(false);
-                      alert('Logout action triggered.');
+                      logout();
                     }}
                     className="w-full text-left px-4 py-2 text-neutral-700 hover:bg-neutral-50 hover:text-red-600 flex items-center space-x-2 focus:outline-none focus:bg-neutral-50"
                   >

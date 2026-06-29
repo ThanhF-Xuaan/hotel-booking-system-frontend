@@ -86,8 +86,8 @@ const DiscountRulePage = () => {
       const result = await discountRuleApi.update(editingItem.id, payload);
       setRules(prev => prev.map(r => r.id === editingItem.id ? result : r));
     } else {
-      const result = await discountRuleApi.create(payload);
-      setRules(prev => [result, ...prev]);
+      const result = await discountRuleApi.create(payload); // returns list of rules
+      setRules(prev => [...result, ...prev]);
     }
     setIsModalOpen(false);
     setEditingItem(null);
@@ -114,22 +114,8 @@ const DiscountRulePage = () => {
     }
   };
 
-  const getRoomTypeName = (hrtId) => {
-    const matchedHrt = hotelRoomTypes.find(hrt => hrt.id === hrtId);
-    if (!matchedHrt) return `Room Config ${hrtId}`;
-    const matchedRoomType = globalRoomTypes.find(rt => rt.id === matchedHrt.roomTypeId);
-    return matchedRoomType ? matchedRoomType.name : `Room Type ${matchedHrt.roomTypeId}`;
-  };
-
-  const getHotelName = (hrtId) => {
-    const matchedHrt = hotelRoomTypes.find(hrt => hrt.id === hrtId);
-    if (!matchedHrt) return '';
-    const matchedHotel = hotels.find(h => h.id === matchedHrt.hotelId);
-    return matchedHotel ? matchedHotel.name : `Hotel ${matchedHrt.hotelId}`;
-  };
-
   const getCampaignName = (campaignId) => {
-    if (!campaignId) return 'N/A';
+    if (!campaignId) return '';
     const matched = campaigns.find(c => c.id === campaignId);
     return matched ? matched.name : `Campaign ID: ${campaignId}`;
   };
@@ -140,6 +126,24 @@ const DiscountRulePage = () => {
     const hotelName = matchedHotel ? matchedHotel.name : `Hotel ${hrType.hotelId}`;
     const roomTypeName = matchedRoomType ? matchedRoomType.name : `Room Type ${hrType.roomTypeId}`;
     return `${hotelName} - ${roomTypeName}`;
+  };
+
+  const formatConditions = (conditions) => {
+    if (!conditions) return 'None';
+    const parts = [];
+    if (conditions.minNights !== null && conditions.minNights !== undefined && conditions.minNights !== '') {
+      parts.push(`Min Nights: ${conditions.minNights}`);
+    }
+    if (conditions.maxNights !== null && conditions.maxNights !== undefined && conditions.maxNights !== '') {
+      parts.push(`Max Nights: ${conditions.maxNights}`);
+    }
+    if (conditions.minAdvanceBookingDays !== null && conditions.minAdvanceBookingDays !== undefined && conditions.minAdvanceBookingDays !== '') {
+      parts.push(`Book ${conditions.minAdvanceBookingDays}d in advance`);
+    }
+    if (conditions.promoCode) {
+      parts.push(`Promo Code: ${conditions.promoCode}`);
+    }
+    return parts.length > 0 ? parts.join(', ') : 'None';
   };
 
   return (
@@ -217,12 +221,12 @@ const DiscountRulePage = () => {
             <thead>
               <tr className="bg-neutral-900 text-white uppercase text-[11px] font-bold tracking-wider">
                 <th className="py-4 px-6">ID</th>
-                <th className="py-4 px-6">Hotel & Room Configuration</th>
-                <th className="py-4 px-6">Campaign</th>
+                <th className="py-4 px-6">Room Type Name</th>
                 <th className="py-4 px-6">Rule Type</th>
-                <th className="py-4 px-6 text-center">Min Nights</th>
-                <th className="py-4 px-6">Discount Value</th>
-                <th className="py-4 px-6">Date Schedule</th>
+                <th className="py-4 px-6">Conditions</th>
+                <th className="py-4 px-6">Discount</th>
+                <th className="py-4 px-6">Start Date</th>
+                <th className="py-4 px-6">End Date</th>
                 <th className="py-4 px-6 text-center">Status</th>
                 <th className="py-4 px-6 text-right">Actions</th>
               </tr>
@@ -239,17 +243,18 @@ const DiscountRulePage = () => {
                   <tr key={rule.id} className="hover:bg-neutral-50 transition-colors">
                     <td className="py-4 px-6 font-bold text-neutral-950">{rule.id}</td>
                     <td className="py-4 px-6">
-                      <div className="font-bold text-black">{getRoomTypeName(rule.hotelRoomTypeId)}</div>
-                      <div className="text-xs text-neutral-450 font-semibold">{getHotelName(rule.hotelRoomTypeId)}</div>
+                      <div className="font-bold text-black">{rule.hotelRoomTypeName}</div>
+                      {rule.campaignId && (
+                        <div className="text-xs text-neutral-450 font-semibold mt-0.5">
+                          Campaign: {getCampaignName(rule.campaignId)}
+                        </div>
+                      )}
                     </td>
-                    <td className="py-4 px-6 font-bold text-neutral-850">
-                      {getCampaignName(rule.campaignId)}
-                    </td>
-                    <td className="py-4 px-6 font-mono font-bold text-red-600">
+                    <td className="py-4 px-6 font-mono font-bold text-red-650">
                       {rule.ruleTypeCode}
                     </td>
-                    <td className="py-4 px-6 text-center font-mono font-bold text-neutral-800">
-                      {rule.ruleTypeCode === 'LONG_STAY' ? `${rule.minNights} nights` : 'N/A'}
+                    <td className="py-4 px-6 text-neutral-700 font-medium font-mono text-xs">
+                      {formatConditions(rule.conditions)}
                     </td>
                     <td className="py-4 px-6 font-extrabold text-neutral-900 font-mono">
                       {rule.discountType === 'PERCENT' ? (
@@ -258,8 +263,11 @@ const DiscountRulePage = () => {
                         `- ${parseFloat(rule.discountValue).toLocaleString()} VND`
                       )}
                     </td>
-                    <td className="py-4 px-6 text-neutral-600 font-semibold font-mono text-xs">
-                      {rule.startDate} to {rule.endDate}
+                    <td className="py-4 px-6 font-mono text-xs font-semibold text-neutral-600">
+                      {rule.startDate}
+                    </td>
+                    <td className="py-4 px-6 font-mono text-xs font-semibold text-neutral-600">
+                      {rule.endDate}
                     </td>
                     <td className="py-4 px-6 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider
@@ -275,7 +283,7 @@ const DiscountRulePage = () => {
                       <div className="flex items-center justify-end space-x-2">
                         <button
                           onClick={() => handleOpenEdit(rule)}
-                          className="p-1.5 rounded hover:bg-neutral-100 text-neutral-700 hover:text-black focus:outline-none focus:ring-2 focus:ring-red-600"
+                          className="p-1.5 rounded hover:bg-neutral-100 text-neutral-700 hover:text-black focus:outline-none focus:ring-2 focus:ring-red-650"
                           aria-label={`Edit discount rule ${rule.id}`}
                         >
                           <Edit2 className="w-4 h-4" />
@@ -320,7 +328,7 @@ const DiscountRulePage = () => {
             <p className="text-sm text-neutral-600 mb-6 leading-relaxed">
               Are you sure you want to permanently delete discount rule:
               <strong className="text-black block mt-2 font-bold bg-neutral-50 p-2.5 rounded border border-neutral-200">
-                Rule ID: {itemToDelete.id} ({getRoomTypeName(itemToDelete.hotelRoomTypeId)} - {itemToDelete.ruleTypeCode})
+                Rule ID: {itemToDelete.id} ({itemToDelete.hotelRoomTypeName} - {itemToDelete.ruleTypeCode})
               </strong>
               This action cannot be undone.
             </p>
@@ -335,7 +343,7 @@ const DiscountRulePage = () => {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-red-650"
               >
                 Confirm Delete
               </button>
