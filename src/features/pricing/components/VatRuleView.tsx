@@ -1,27 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, AlertCircle, Loader2 } from 'lucide-react';
 import api from '../../../services/api';
-import { VatRuleResponse } from '../../../types/pricing';
-
-const APPLIES_TO_ENUMS = [
-  "ROOM",
-  "AMENITY",
-  "FOOD",
-  "SUGARY_DRINK",
-  "NORMAL_NON_ALCOHOLIC_DRINK",
-  "ALCOHOLIC_DRINK",
-  "OTHER"
-];
+import { taxCategoryApi } from '../tax-category/api/taxCategoryApi';
+import { VatRuleResponse, VatRuleCreateRequest, VatRuleUpdateRequest, TaxCategoryResponse } from '../../../types/pricing';
 
 interface FormErrors {
   vatCode?: string;
   vatName?: string;
   vatPercent?: string;
+  taxCategoryId?: string;
   endDate?: string;
 }
 
 const VatRuleView: React.FC = () => {
   const [items, setItems] = useState<VatRuleResponse[]>([]);
+  const [taxCategories, setTaxCategories] = useState<TaxCategoryResponse[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -39,7 +32,7 @@ const VatRuleView: React.FC = () => {
     vatCode: '',
     vatName: '',
     vatPercent: '10.00',
-    appliesTo: 'ROOM',
+    taxCategoryId: '',
     startDate: '',
     endDate: '',
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE'
@@ -61,8 +54,19 @@ const VatRuleView: React.FC = () => {
     }
   };
 
+  // Fetch Tax Categories for Dropdown
+  const fetchTaxCategories = async (): Promise<void> => {
+    try {
+      const data = await taxCategoryApi.getAll();
+      setTaxCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load tax categories', err);
+    }
+  };
+
   useEffect(() => {
     fetchVatRules();
+    fetchTaxCategories();
   }, []);
 
   const handleOpenCreate = (): void => {
@@ -71,7 +75,7 @@ const VatRuleView: React.FC = () => {
       vatCode: '',
       vatName: '',
       vatPercent: '10.00',
-      appliesTo: 'ROOM',
+      taxCategoryId: taxCategories.length > 0 ? taxCategories[0].id.toString() : '',
       startDate: '',
       endDate: '',
       status: 'ACTIVE'
@@ -87,7 +91,7 @@ const VatRuleView: React.FC = () => {
       vatCode: rule.vatCode,
       vatName: rule.vatName,
       vatPercent: rule.vatPercent.toString(),
-      appliesTo: rule.appliesTo,
+      taxCategoryId: rule.taxCategoryId.toString(),
       startDate: rule.startDate || '',
       endDate: rule.endDate || '',
       status: rule.status
@@ -118,6 +122,10 @@ const VatRuleView: React.FC = () => {
       newErrors.vatPercent = 'Percent must be a valid number between 0% and 100%';
     }
 
+    if (!formData.taxCategoryId) {
+      newErrors.taxCategoryId = 'Tax category assignment is required';
+    }
+
     if (formData.startDate && formData.endDate) {
       if (new Date(formData.startDate) > new Date(formData.endDate)) {
         newErrors.endDate = 'End date cannot be earlier than start date';
@@ -135,29 +143,31 @@ const VatRuleView: React.FC = () => {
     setIsLoading(true);
     setSubmitError(null);
     try {
-      const payload: {
-        vatName: string;
-        vatPercent: number;
-        appliesTo: string;
-        startDate: string | null;
-        endDate: string | null;
-        status: 'ACTIVE' | 'INACTIVE';
-        vatCode?: string;
-      } = {
-        vatName: formData.vatName.trim(),
-        vatPercent: parseFloat(formData.vatPercent),
-        appliesTo: formData.appliesTo,
-        startDate: formData.startDate || null,
-        endDate: formData.endDate || null,
-        status: formData.status
-      };
+      const taxCategoryId = parseInt(formData.taxCategoryId, 10);
+      const vatPercent = parseFloat(formData.vatPercent);
 
       if (editingItem) {
         // PUT Request
+        const payload: VatRuleUpdateRequest = {
+          vatName: formData.vatName.trim(),
+          vatPercent,
+          taxCategoryId,
+          startDate: formData.startDate || null,
+          endDate: formData.endDate || null,
+          status: formData.status
+        };
         await api.put(`/hotel/api/v1/pricing/vat-rules/${editingItem.id}`, payload);
       } else {
         // POST Request
-        payload.vatCode = formData.vatCode.trim().toUpperCase();
+        const payload: VatRuleCreateRequest = {
+          vatCode: formData.vatCode.trim().toUpperCase(),
+          vatName: formData.vatName.trim(),
+          vatPercent,
+          taxCategoryId,
+          startDate: formData.startDate || null,
+          endDate: formData.endDate || null,
+          status: formData.status
+        };
         await api.post('/hotel/api/v1/pricing/vat-rules', payload);
       }
       setIsModalOpen(false);
@@ -196,6 +206,11 @@ const VatRuleView: React.FC = () => {
     }
   };
 
+  const getTaxCategoryName = (taxCategoryId: number): string => {
+    const matched = taxCategories.find(c => c.id === taxCategoryId);
+    return matched ? `${matched.categoryName} (${matched.categoryCode})` : `Category ${taxCategoryId}`;
+  };
+
   return (
     <div className="relative space-y-6 min-h-[400px]">
       {/* LOADING OVERLAY */}
@@ -212,8 +227,8 @@ const VatRuleView: React.FC = () => {
       {fetchError && (
         <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded flex items-center justify-between shadow-sm animate-fade-in">
           <div className="flex items-center space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-655 flex-shrink-0" />
-            <span className="text-sm font-semibold text-red-707">{fetchError}</span>
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="text-sm font-semibold text-red-800">{fetchError}</span>
           </div>
           <button 
             type="button"
@@ -253,7 +268,7 @@ const VatRuleView: React.FC = () => {
                 <th className="py-4 px-6">VAT Code</th>
                 <th className="py-4 px-6">Name</th>
                 <th className="py-4 px-6">Rate</th>
-                <th className="py-4 px-6">Applies To</th>
+                <th className="py-4 px-6">Tax Category</th>
                 <th className="py-4 px-6">Active Period</th>
                 <th className="py-4 px-6 text-center">Status</th>
                 <th className="py-4 px-6 text-right">Actions</th>
@@ -269,14 +284,12 @@ const VatRuleView: React.FC = () => {
               ) : (
                 items.map((rule) => (
                   <tr key={rule.id} className="hover:bg-neutral-50 transition-colors">
-                    <td className="py-4 px-6 font-bold text-neutral-955">{rule.id}</td>
+                    <td className="py-4 px-6 font-bold text-neutral-900">{rule.id}</td>
                     <td className="py-4 px-6 font-mono font-bold text-red-600">{rule.vatCode}</td>
                     <td className="py-4 px-6 font-semibold text-black">{rule.vatName}</td>
-                    <td className="py-4 px-6 text-neutral-955 font-extrabold">{rule.vatPercent}%</td>
-                    <td className="py-4 px-6">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-neutral-100 text-neutral-850 border border-neutral-300">
-                        {rule.appliesTo}
-                      </span>
+                    <td className="py-4 px-6 text-neutral-900 font-extrabold">{rule.vatPercent}%</td>
+                    <td className="py-4 px-6 font-medium text-black">
+                      {getTaxCategoryName(rule.taxCategoryId)}
                     </td>
                     <td className="py-4 px-6 text-neutral-600 text-xs">
                       {rule.startDate ? (
@@ -302,16 +315,16 @@ const VatRuleView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(rule)}
-                          className="p-1.5 rounded hover:bg-neutral-100 text-neutral-700 hover:text-black focus:outline-none focus:ring-2 focus:ring-red-650"
-                          aria-label={`Edit VAT rule ${(rule as unknown as { vatCode: string }).vatCode}`}
+                          className="p-1.5 rounded hover:bg-neutral-100 text-neutral-700 hover:text-black focus:outline-none focus:ring-2 focus:ring-red-600"
+                          aria-label={`Edit VAT rule ${rule.vatCode}`}
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleOpenDelete(rule)}
-                          className="p-1.5 rounded hover:bg-red-50 text-neutral-600 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-650"
-                          aria-label={`Delete VAT rule ${(rule as unknown as { vatCode: string }).vatCode}`}
+                          className="p-1.5 rounded hover:bg-red-50 text-neutral-600 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-600"
+                          aria-label={`Delete VAT rule ${rule.vatCode}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -353,8 +366,8 @@ const VatRuleView: React.FC = () => {
             {submitError && (
               <div className="bg-red-50 border-l-4 border-red-600 p-4 m-6 mb-0 rounded flex items-center justify-between shadow-sm animate-fade-in">
                 <div className="flex items-center space-x-3">
-                  <AlertCircle className="w-5 h-5 text-red-605 flex-shrink-0" />
-                  <span className="text-sm font-semibold text-red-707">{submitError}</span>
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <span className="text-sm font-semibold text-red-800">{submitError}</span>
                 </div>
                 <button 
                   type="button"
@@ -385,7 +398,7 @@ const VatRuleView: React.FC = () => {
                     ${editingItem 
                       ? 'bg-neutral-100 border-neutral-300 text-neutral-500 cursor-not-allowed ring-0' 
                       : errors.vatCode 
-                        ? 'border-red-600 focus:border-red-650' 
+                        ? 'border-red-600 focus:border-red-600' 
                         : 'border-neutral-300 focus:border-black'
                     }
                   `}
@@ -393,7 +406,7 @@ const VatRuleView: React.FC = () => {
                   style={{ textTransform: 'uppercase' }}
                 />
                 {errors.vatCode && !editingItem && (
-                  <p className="mt-1 text-xs text-red-655 flex items-center space-x-1">
+                  <p className="mt-1 text-xs text-red-600 flex items-center space-x-1">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>{errors.vatCode}</span>
                   </p>
@@ -416,7 +429,7 @@ const VatRuleView: React.FC = () => {
                   placeholder="E.g., Standard Room VAT"
                 />
                 {errors.vatName && (
-                  <p className="mt-1 text-xs text-red-655 flex items-center space-x-1">
+                  <p className="mt-1 text-xs text-red-600 flex items-center space-x-1">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>{errors.vatName}</span>
                   </p>
@@ -440,28 +453,37 @@ const VatRuleView: React.FC = () => {
                   placeholder="10.00"
                 />
                 {errors.vatPercent && (
-                  <p className="mt-1 text-xs text-red-655 flex items-center space-x-1">
+                  <p className="mt-1 text-xs text-red-600 flex items-center space-x-1">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>{errors.vatPercent}</span>
                   </p>
                 )}
               </div>
 
-              {/* Applies To Dropdown */}
+              {/* Tax Category Dropdown */}
               <div>
-                <label htmlFor="vat-applies-to" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
-                  Applies To *
+                <label htmlFor="tax-category-id" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
+                  Tax Category *
                 </label>
                 <select
-                  id="vat-applies-to"
-                  value={formData.appliesTo}
-                  onChange={(e) => setFormData({ ...formData, appliesTo: e.target.value })}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-black"
+                  id="tax-category-id"
+                  value={formData.taxCategoryId}
+                  onChange={(e) => setFormData({ ...formData, taxCategoryId: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-red-600
+                    ${errors.taxCategoryId ? 'border-red-600 focus:border-red-600' : 'border-neutral-300 focus:border-black'}
+                  `}
                 >
-                  {APPLIES_TO_ENUMS.map(val => (
-                    <option key={val} value={val}>{val}</option>
+                  <option value="">Select Tax Category</option>
+                  {taxCategories.map(cat => (
+                    <option key={cat.id} value={cat.id.toString()}>{cat.categoryName} ({cat.categoryCode})</option>
                   ))}
                 </select>
+                {errors.taxCategoryId && (
+                  <p className="mt-1 text-xs text-red-600 flex items-center space-x-1">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{errors.taxCategoryId}</span>
+                  </p>
+                )}
               </div>
 
               {/* Start Date & End Date */}
@@ -492,7 +514,7 @@ const VatRuleView: React.FC = () => {
                     `}
                   />
                   {errors.endDate && (
-                    <p className="mt-1 text-xs text-red-655 flex items-center space-x-1">
+                    <p className="mt-1 text-xs text-red-600 flex items-center space-x-1">
                       <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                       <span>{errors.endDate}</span>
                     </p>
@@ -562,7 +584,7 @@ const VatRuleView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-red-655"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600"
               >
                 Confirm Delete
               </button>

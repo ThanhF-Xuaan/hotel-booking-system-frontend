@@ -1,3 +1,4 @@
+// Discount Condition & Tier DTOs
 export interface DiscountCondition {
   minNights?: number | null;
   maxNights?: number | null;
@@ -113,13 +114,22 @@ export interface PricingRuleUpdateRequest {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
+// Surcharge Condition DTOs
+export interface SurchargeCondition {
+  min_hours?: number | null; // Backend uses @JsonProperty("min_hours")
+}
+
+export interface SurchargeConditionRequest {
+  minHours?: number | null;
+}
+
 // Surcharge Rule DTOs
 export interface SurchargeRuleResponse {
   id: number;
   hotelRoomTypeId: number;
-  hotelRoomTypeName: string;
   ruleType: string;
-  guestType?: 'ADULT' | 'CHILD' | 'INFANT' | null;
+  agePolicyId?: number | null;
+  conditions?: SurchargeCondition | null;
   adjustmentType: 'PERCENT' | 'FIXED';
   adjustmentValue: number;
   startDate: string; // YYYY-MM-DD
@@ -130,7 +140,8 @@ export interface SurchargeRuleResponse {
 export interface SurchargeRuleCreateRequest {
   hotelRoomTypeId: number;
   ruleType: string;
-  guestType?: 'ADULT' | 'CHILD' | 'INFANT' | null;
+  agePolicyId?: number | null;
+  conditions?: SurchargeConditionRequest | null;
   adjustmentType: 'PERCENT' | 'FIXED';
   adjustmentValue: number;
   startDate: string; // YYYY-MM-DD
@@ -141,7 +152,8 @@ export interface SurchargeRuleCreateRequest {
 export interface SurchargeRuleUpdateRequest {
   hotelRoomTypeId: number;
   ruleType: string;
-  guestType?: 'ADULT' | 'CHILD' | 'INFANT' | null;
+  agePolicyId?: number | null;
+  conditions?: SurchargeConditionRequest | null;
   adjustmentType: 'PERCENT' | 'FIXED';
   adjustmentValue: number;
   startDate: string; // YYYY-MM-DD
@@ -170,6 +182,7 @@ export interface RuleTypeUpdateRequest {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
+// Holiday Calendar DTOs
 export interface HolidayCalendarResponse {
   id: number;
   name: string;
@@ -177,13 +190,87 @@ export interface HolidayCalendarResponse {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
+// VatRule DTOs
 export interface VatRuleResponse {
   id: number;
   vatCode: string;
   vatName: string;
   vatPercent: number;
-  appliesTo: string;
+  taxCategoryId: number;
   startDate?: string | null;
   endDate?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface VatRuleCreateRequest {
+  vatCode: string;
+  vatName: string;
+  vatPercent: number;
+  taxCategoryId: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  status?: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface VatRuleUpdateRequest {
+  vatName: string;
+  vatPercent: number;
+  taxCategoryId: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+}
+
+// TaxCategory DTOs
+export interface TaxCategoryResponse {
+  id: number;
+  categoryCode: string;
+  categoryName: string;
+  description?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface TaxCategoryCreateRequest {
+  categoryCode: string;
+  categoryName: string;
+  description?: string | null;
+  status?: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface TaxCategoryUpdateRequest {
+  categoryCode: string;
+  categoryName: string;
+  description?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+}
+
+// HotelAgePolicy DTOs
+export interface HotelAgePolicyResponse {
+  id: number;
+  hotelId: number;
+  guestType: string;
+  minAge: number;
+  maxAge: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface HotelAgePolicyCreateRequest {
+  hotelId: number;
+  guestType: string;
+  minAge: number;
+  maxAge: number;
+  status?: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface HotelAgePolicyUpdateRequest {
+  guestType: string;
+  minAge: number;
+  maxAge: number;
   status: 'ACTIVE' | 'INACTIVE';
 }

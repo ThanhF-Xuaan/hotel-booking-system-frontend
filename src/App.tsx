@@ -23,6 +23,8 @@ import HotelRoomTypeListPage from './features/inventory/hotel-room-type/componen
 import HotelRoomTypeDetailPage from './features/inventory/hotel-room-type/components/HotelRoomTypeDetailPage';
 import LoginPage from './features/auth/components/LoginPage';
 import ProtectedRoute from './features/auth/components/ProtectedRoute';
+import TaxCategoryPage from './features/pricing/tax-category/components/TaxCategoryPage';
+import AgePolicyPage from './features/pricing/age-policy/components/AgePolicyPage';
 
 const App: React.FC = () => {
   return (
@@ -46,6 +48,8 @@ const App: React.FC = () => {
           <Route path="hotel-room-types/:id" element={<HotelRoomTypeDetailPage />} />
           <Route path="catalog-items" element={<CatalogItemPage />} />
           <Route path="vat-rules" element={<VatRuleView />} />
+          <Route path="tax-categories" element={<TaxCategoryPage />} />
+          <Route path="age-policies" element={<AgePolicyPage />} />
           <Route path="holiday-calendars" element={<HolidayCalendarView />} />
           <Route path="pricing-rules" element={<PricingRulePage />} />
           <Route path="campaigns" element={<CampaignPage />} />

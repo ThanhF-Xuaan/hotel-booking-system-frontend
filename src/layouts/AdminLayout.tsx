@@ -59,6 +59,8 @@ const AdminLayout: React.FC = () => {
     { name: 'Hotel Room Types', path: '/admin/hotel-room-types', icon: Settings },
     { name: 'Catalog Items', path: '/admin/catalog-items', icon: PackageIcon },
     { name: 'VAT Rules', path: '/admin/vat-rules', icon: Percent },
+    { name: 'Tax Categories', path: '/admin/tax-categories', icon: Layers },
+    { name: 'Age Policies', path: '/admin/age-policies', icon: Users },
     { name: 'Holiday Calendars', path: '/admin/holiday-calendars', icon: Calendar },
     { name: 'Pricing Rules', path: '/admin/pricing-rules', icon: Tag },
     { name: 'Campaigns', path: '/admin/campaigns', icon: Megaphone },

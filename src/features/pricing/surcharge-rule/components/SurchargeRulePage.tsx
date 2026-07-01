@@ -3,11 +3,13 @@ import { Plus, Edit2, Trash2, X, AlertCircle, Loader2 } from 'lucide-react';
 import api from '../../../../services/api';
 import { hotelRoomTypeApi } from '../../../inventory/hotel-room-type/api/hotelRoomTypeApi';
 import { surchargeRuleApi } from '../api/surchargeRuleApi';
+import { agePolicyApi } from '../../age-policy/api/agePolicyApi';
 import SurchargeRuleModal from './SurchargeRuleModal';
 import { 
   SurchargeRuleResponse, 
   SurchargeRuleCreateRequest, 
-  SurchargeRuleUpdateRequest 
+  SurchargeRuleUpdateRequest,
+  HotelAgePolicyResponse
 } from '../../../../types/pricing';
 
 interface DropdownItem {
@@ -26,6 +28,7 @@ const SurchargeRulePage: React.FC = () => {
   const [hotels, setHotels] = useState<DropdownItem[]>([]);
   const [globalRoomTypes, setGlobalRoomTypes] = useState<DropdownItem[]>([]);
   const [hotelRoomTypes, setHotelRoomTypes] = useState<HotelRoomTypeItem[]>([]);
+  const [agePolicies, setAgePolicies] = useState<HotelAgePolicyResponse[]>([]);
 
   // Selection states
   const [filterHotelRoomTypeId, setFilterHotelRoomTypeId] = useState<string>('');
@@ -44,15 +47,17 @@ const SurchargeRulePage: React.FC = () => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const [hotelsList, rTypesList, hrTypesList] = await Promise.all([
+      const [hotelsList, rTypesList, hrTypesList, policiesList] = await Promise.all([
         api.get('/hotel/api/v1/inventory/hotels'),
         api.get('/hotel/api/v1/inventory/room-types'),
-        hotelRoomTypeApi.getAll()
+        hotelRoomTypeApi.getAll(),
+        agePolicyApi.getAll()
       ]);
 
       setHotels(Array.isArray(hotelsList) ? (hotelsList as DropdownItem[]) : []);
       setGlobalRoomTypes(Array.isArray(rTypesList) ? (rTypesList as DropdownItem[]) : []);
       setHotelRoomTypes(Array.isArray(hrTypesList) ? (hrTypesList as HotelRoomTypeItem[]) : []);
+      setAgePolicies(Array.isArray(policiesList) ? policiesList : []);
     } catch (err: unknown) {
       console.error(err);
       const axiosError = err as { response?: { data?: { message?: string } } };
@@ -151,6 +156,23 @@ const SurchargeRulePage: React.FC = () => {
     return `${hotelName} - ${roomTypeName}`;
   };
 
+  const renderConstraint = (rule: SurchargeRuleResponse) => {
+    if (rule.ruleType === 'EXTRA_PERSON' && rule.agePolicyId) {
+      const policy = agePolicies.find(p => p.id === rule.agePolicyId);
+      return policy ? (
+        <span className="font-semibold text-neutral-800">
+          Age Policy: {policy.guestType} ({policy.minAge}-{policy.maxAge} yrs)
+        </span>
+      ) : (
+        <span className="text-neutral-500 italic">Age Policy ID: {rule.agePolicyId}</span>
+      );
+    }
+    if ((rule.ruleType === 'EARLY_CHECKIN' || rule.ruleType === 'LATE_CHECKOUT') && rule.conditions?.min_hours) {
+      return <span className="font-semibold text-neutral-800">Min Hours: {rule.conditions.min_hours}</span>;
+    }
+    return <span className="text-neutral-400 italic">—</span>;
+  };
+
   return (
     <div className="relative space-y-6 min-h-[400px]">
       {/* Loading Overlay */}
@@ -167,8 +189,8 @@ const SurchargeRulePage: React.FC = () => {
       {fetchError && (
         <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded flex items-center justify-between shadow-sm animate-fade-in">
           <div className="flex items-center space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-655 flex-shrink-0" />
-            <span className="text-sm font-semibold text-red-750">{fetchError}</span>
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="text-sm font-semibold text-red-800">{fetchError}</span>
           </div>
           <button 
             type="button"
@@ -230,7 +252,7 @@ const SurchargeRulePage: React.FC = () => {
                 <th className="py-4 px-6">ID</th>
                 <th className="py-4 px-6">Hotel & Room Configuration</th>
                 <th className="py-4 px-6">Rule Type</th>
-                <th className="py-4 px-6">Guest Type</th>
+                <th className="py-4 px-6">Target Constraint</th>
                 <th className="py-4 px-6">Surcharge Fee</th>
                 <th className="py-4 px-6">Date Schedule</th>
                 <th className="py-4 px-6 text-center">Status</th>
@@ -247,16 +269,16 @@ const SurchargeRulePage: React.FC = () => {
               ) : (
                 rules.map((rule) => (
                   <tr key={rule.id} className="hover:bg-neutral-50 transition-colors">
-                    <td className="py-4 px-6 font-bold text-neutral-955">{rule.id}</td>
+                    <td className="py-4 px-6 font-bold text-neutral-900">{rule.id}</td>
                     <td className="py-4 px-6">
                       <div className="font-bold text-black">{getRoomTypeName(rule.hotelRoomTypeId)}</div>
-                      <div className="text-xs text-neutral-450 font-semibold">{getHotelName(rule.hotelRoomTypeId)}</div>
+                      <div className="text-xs text-neutral-500 font-semibold">{getHotelName(rule.hotelRoomTypeId)}</div>
                     </td>
                     <td className="py-4 px-6 font-bold text-red-600 font-mono">
                       {rule.ruleType}
                     </td>
-                    <td className="py-4 px-6 font-semibold text-neutral-700">
-                      {rule.guestType || 'All Guests'}
+                    <td className="py-4 px-6">
+                      {renderConstraint(rule)}
                     </td>
                     <td className="py-4 px-6 font-extrabold text-neutral-900 font-mono">
                       {rule.adjustmentType === 'PERCENT' ? (
@@ -283,7 +305,7 @@ const SurchargeRulePage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(rule)}
-                          className="p-1.5 rounded hover:bg-neutral-100 text-neutral-700 hover:text-black focus:outline-none focus:ring-2 focus:ring-red-650"
+                          className="p-1.5 rounded hover:bg-neutral-100 text-neutral-700 hover:text-black focus:outline-none focus:ring-2 focus:ring-red-600"
                           aria-label={`Edit surcharge rule ${rule.id}`}
                         >
                           <Edit2 className="w-4 h-4" />
@@ -291,7 +313,7 @@ const SurchargeRulePage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenDelete(rule)}
-                          className="p-1.5 rounded hover:bg-red-50 text-neutral-600 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-650"
+                          className="p-1.5 rounded hover:bg-red-50 text-neutral-600 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-600"
                           aria-label={`Delete surcharge rule ${rule.id}`}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -344,7 +366,7 @@ const SurchargeRulePage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-red-650"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600"
               >
                 Confirm Delete
               </button>

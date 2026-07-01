@@ -55,7 +55,7 @@ export interface CatalogItemResponse {
   hotelId: number;
   name: string;
   itemType: 'ROOM_AMENITY' | 'ROOM_SERVICE' | 'FOOD' | 'SUGARY_DRINK' | 'NORMAL_NON_ALCOHOLIC_DRINK' | 'ALCOHOLIC_DRINK' | 'EXTRA_BED' | 'OTHER';
-  vatRuleId: number;
+  taxCategoryId: number;
   basePrice: number;
   status: 'ACTIVE' | 'INACTIVE';
 }
@@ -64,7 +64,7 @@ export interface CatalogItemCreateRequest {
   hotelId: number;
   name: string;
   itemType: 'ROOM_AMENITY' | 'ROOM_SERVICE' | 'FOOD' | 'SUGARY_DRINK' | 'NORMAL_NON_ALCOHOLIC_DRINK' | 'ALCOHOLIC_DRINK' | 'EXTRA_BED' | 'OTHER';
-  vatRuleId: number;
+  taxCategoryId: number;
   basePrice: number;
   status: 'ACTIVE' | 'INACTIVE';
 }
@@ -72,7 +72,7 @@ export interface CatalogItemCreateRequest {
 export interface CatalogItemUpdateRequest {
   name: string;
   itemType: 'ROOM_AMENITY' | 'ROOM_SERVICE' | 'FOOD' | 'SUGARY_DRINK' | 'NORMAL_NON_ALCOHOLIC_DRINK' | 'ALCOHOLIC_DRINK' | 'EXTRA_BED' | 'OTHER';
-  vatRuleId: number;
+  taxCategoryId: number;
   basePrice: number;
   status: 'ACTIVE' | 'INACTIVE';
 }

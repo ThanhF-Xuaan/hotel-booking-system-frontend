@@ -2,14 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, AlertCircle, Loader2 } from 'lucide-react';
 import api from '../../../../services/api';
 import { catalogItemApi } from '../api/catalogItemApi';
+import { taxCategoryApi } from '../../../pricing/tax-category/api/taxCategoryApi';
 import { ITEM_TYPES, CatalogItemResponse } from '../../../../types/inventory';
-
-interface VatRuleResponse {
-  id: number;
-  vatName: string;
-  vatPercent: number;
-  appliesTo: string;
-}
+import { TaxCategoryResponse } from '../../../../types/pricing';
 
 interface DropdownItem {
   id: number;
@@ -19,14 +14,14 @@ interface DropdownItem {
 interface FormErrors {
   name?: string;
   itemType?: string;
-  vatRuleId?: string;
+  taxCategoryId?: string;
   basePrice?: string;
 }
 
 const CatalogItemPage: React.FC = () => {
   const [hotels, setHotels] = useState<DropdownItem[]>([]);
   const [selectedHotelId, setSelectedHotelId] = useState<string>('');
-  const [vatRules, setVatRules] = useState<VatRuleResponse[]>([]);
+  const [taxCategories, setTaxCategories] = useState<TaxCategoryResponse[]>([]);
   const [items, setItems] = useState<CatalogItemResponse[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -44,24 +39,24 @@ const CatalogItemPage: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     itemType: 'ROOM_SERVICE' as CatalogItemResponse['itemType'],
-    vatRuleId: '',
+    taxCategoryId: '',
     basePrice: '',
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE'
   });
 
-  // Fetch initial configuration data (Hotels & VAT Rules)
+  // Fetch initial configuration data (Hotels & Tax Categories)
   const fetchConfigData = async (): Promise<void> => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const [hotelsData, vatData] = await Promise.all([
+      const [hotelsData, taxData] = await Promise.all([
         api.get('/hotel/api/v1/inventory/hotels'),
-        api.get('/hotel/api/v1/pricing/vat-rules')
+        taxCategoryApi.getAll()
       ]);
 
       const hotelsList = Array.isArray(hotelsData) ? (hotelsData as DropdownItem[]) : [];
       setHotels(hotelsList);
-      setVatRules(Array.isArray(vatData) ? (vatData as VatRuleResponse[]) : []);
+      setTaxCategories(Array.isArray(taxData) ? taxData : []);
 
       if (hotelsList.length > 0) {
         setSelectedHotelId(hotelsList[0].id.toString());
@@ -113,7 +108,7 @@ const CatalogItemPage: React.FC = () => {
     setFormData({
       name: '',
       itemType: 'ROOM_SERVICE',
-      vatRuleId: vatRules.length > 0 ? vatRules[0].id.toString() : '',
+      taxCategoryId: taxCategories.length > 0 ? taxCategories[0].id.toString() : '',
       basePrice: '',
       status: 'ACTIVE'
     });
@@ -127,7 +122,7 @@ const CatalogItemPage: React.FC = () => {
     setFormData({
       name: item.name,
       itemType: item.itemType,
-      vatRuleId: item.vatRuleId ? item.vatRuleId.toString() : '',
+      taxCategoryId: item.taxCategoryId ? item.taxCategoryId.toString() : '',
       basePrice: item.basePrice.toString(),
       status: item.status
     });
@@ -140,7 +135,7 @@ const CatalogItemPage: React.FC = () => {
     const newErrors: FormErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Item name is required';
     if (!formData.itemType) newErrors.itemType = 'Item type category is required';
-    if (!formData.vatRuleId) newErrors.vatRuleId = 'Vat rule assignment is required';
+    if (!formData.taxCategoryId) newErrors.taxCategoryId = 'Tax category assignment is required';
 
     const priceVal = parseFloat(formData.basePrice);
     if (isNaN(priceVal) || priceVal < 0) {
@@ -161,7 +156,7 @@ const CatalogItemPage: React.FC = () => {
       const payload = {
         name: formData.name.trim(),
         itemType: formData.itemType,
-        vatRuleId: parseInt(formData.vatRuleId, 10),
+        taxCategoryId: parseInt(formData.taxCategoryId, 10),
         basePrice: parseFloat(formData.basePrice),
         status: formData.status
       };
@@ -213,10 +208,10 @@ const CatalogItemPage: React.FC = () => {
     }
   };
 
-  // Find VAT Rule Name helper
-  const getVatRuleDisplay = (vatId: number): string => {
-    const matched = vatRules.find(r => r.id === vatId);
-    return matched ? `${matched.vatName} (${matched.vatPercent}%)` : `ID: ${vatId}`;
+  // Find Tax Category helper
+  const getTaxCategoryDisplay = (taxCatId: number): string => {
+    const matched = taxCategories.find(c => c.id === taxCatId);
+    return matched ? `${matched.categoryName} (${matched.categoryCode})` : `ID: ${taxCatId}`;
   };
 
   // Find Hotel Name helper
@@ -241,8 +236,8 @@ const CatalogItemPage: React.FC = () => {
       {fetchError && (
         <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded flex items-center justify-between shadow-sm animate-fade-in">
           <div className="flex items-center space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-655 flex-shrink-0" />
-            <span className="text-sm font-semibold text-red-750">{fetchError}</span>
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="text-sm font-semibold text-red-800">{fetchError}</span>
           </div>
           <button 
             type="button"
@@ -308,7 +303,7 @@ const CatalogItemPage: React.FC = () => {
                 <th className="py-4 px-6">ID</th>
                 <th className="py-4 px-6">Name</th>
                 <th className="py-4 px-6">Item Type</th>
-                <th className="py-4 px-6">Vat Rule</th>
+                <th className="py-4 px-6">Tax Category</th>
                 <th className="py-4 px-6">Base Price</th>
                 <th className="py-4 px-6 text-center">Status</th>
                 <th className="py-4 px-6 text-right">Actions</th>
@@ -331,8 +326,8 @@ const CatalogItemPage: React.FC = () => {
                         {item.itemType}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-neutral-600">{getVatRuleDisplay(item.vatRuleId)}</td>
-                    <td className="py-4 px-6 text-neutral-955 font-extrabold font-mono">
+                    <td className="py-4 px-6 text-neutral-600">{getTaxCategoryDisplay(item.taxCategoryId)}</td>
+                    <td className="py-4 px-6 text-neutral-900 font-extrabold font-mono">
                       {parseFloat(item.basePrice.toString()).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-4 px-6 text-center">
@@ -407,7 +402,7 @@ const CatalogItemPage: React.FC = () => {
                 <button 
                   type="button"
                   onClick={() => setSubmitError(null)}
-                  className="text-red-600 hover:text-red-808 transition-colors focus:outline-none"
+                  className="text-red-600 hover:text-red-800 transition-colors focus:outline-none"
                   aria-label="Dismiss submit error"
                 >
                   <X className="w-5 h-5" />
@@ -471,30 +466,30 @@ const CatalogItemPage: React.FC = () => {
                 </select>
               </div>
 
-              {/* VAT Rule (Dropdown) */}
+              {/* Tax Category (Dropdown) */}
               <div>
-                <label htmlFor="item-vat" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
-                  VAT Rule Assignment *
+                <label htmlFor="item-tax" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
+                  Tax Category Assignment *
                 </label>
                 <select
-                  id="item-vat"
-                  value={formData.vatRuleId}
-                  onChange={(e) => setFormData({ ...formData, vatRuleId: e.target.value })}
+                  id="item-tax"
+                  value={formData.taxCategoryId}
+                  onChange={(e) => setFormData({ ...formData, taxCategoryId: e.target.value })}
                   className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-600
-                    ${errors.vatRuleId ? 'border-red-600 focus:border-red-600' : 'border-neutral-300 focus:border-black'}
+                    ${errors.taxCategoryId ? 'border-red-600 focus:border-red-600' : 'border-neutral-300 focus:border-black'}
                   `}
                 >
-                  <option value="">-- Select VAT Rule --</option>
-                  {vatRules.map((rule) => (
-                    <option key={rule.id} value={rule.id.toString()}>
-                      {rule.vatName} ({rule.vatPercent}%) [Applies to: {rule.appliesTo}]
+                  <option value="">-- Select Tax Category --</option>
+                  {taxCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id.toString()}>
+                      {cat.categoryName} ({cat.categoryCode})
                     </option>
                   ))}
                 </select>
-                {errors.vatRuleId && (
+                {errors.taxCategoryId && (
                   <p className="mt-1 text-xs text-red-600 flex items-center space-x-1">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{errors.vatRuleId}</span>
+                    <span>{errors.taxCategoryId}</span>
                   </p>
                 )}
               </div>
@@ -516,7 +511,7 @@ const CatalogItemPage: React.FC = () => {
                   placeholder="0.00"
                 />
                 {errors.basePrice && (
-                  <p className="mt-1 text-xs text-red-605 flex items-center space-x-1 font-medium">
+                  <p className="mt-1 text-xs text-red-600 flex items-center space-x-1 font-medium">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>{errors.basePrice}</span>
                   </p>

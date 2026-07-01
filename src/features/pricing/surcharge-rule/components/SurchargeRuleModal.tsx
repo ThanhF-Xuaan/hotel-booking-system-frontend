@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import api from '../../../../services/api';
 import { hotelRoomTypeApi } from '../../../inventory/hotel-room-type/api/hotelRoomTypeApi';
+import { agePolicyApi } from '../../age-policy/api/agePolicyApi';
 import { 
   SurchargeRuleResponse, 
   SurchargeRuleCreateRequest, 
-  SurchargeRuleUpdateRequest 
+  SurchargeRuleUpdateRequest,
+  HotelAgePolicyResponse
 } from '../../../../types/pricing';
 
 export interface SurchargeRuleModalProps {
@@ -29,6 +31,8 @@ interface HotelRoomTypeItem {
 interface FormErrors {
   hotelRoomTypeId?: string;
   ruleType?: string;
+  agePolicyId?: string;
+  minHours?: string;
   adjustmentType?: string;
   adjustmentValue?: string;
   startDate?: string;
@@ -40,6 +44,7 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
   const [hotels, setHotels] = useState<DropdownItem[]>([]);
   const [globalRoomTypes, setGlobalRoomTypes] = useState<DropdownItem[]>([]);
   const [hotelRoomTypes, setHotelRoomTypes] = useState<HotelRoomTypeItem[]>([]);
+  const [agePolicies, setAgePolicies] = useState<HotelAgePolicyResponse[]>([]);
   
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -48,7 +53,8 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
   const [formData, setFormData] = useState({
     hotelRoomTypeId: '',
     ruleType: 'EXTRA_PERSON',
-    guestType: '' as 'ADULT' | 'CHILD' | 'INFANT' | '',
+    agePolicyId: '',
+    minHours: '',
     adjustmentType: 'FIXED' as 'PERCENT' | 'FIXED',
     adjustmentValue: '',
     startDate: '',
@@ -59,15 +65,17 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
   const fetchInitializationData = async (): Promise<void> => {
     setIsLoading(true);
     try {
-      const [hotelsList, rTypesList, hrTypesList] = await Promise.all([
+      const [hotelsList, rTypesList, hrTypesList, policiesList] = await Promise.all([
         api.get('/hotel/api/v1/inventory/hotels'),
         api.get('/hotel/api/v1/inventory/room-types'),
-        hotelRoomTypeApi.getAll()
+        hotelRoomTypeApi.getAll(),
+        agePolicyApi.getAll()
       ]);
 
       setHotels(Array.isArray(hotelsList) ? (hotelsList as DropdownItem[]) : []);
       setGlobalRoomTypes(Array.isArray(rTypesList) ? (rTypesList as DropdownItem[]) : []);
       setHotelRoomTypes(Array.isArray(hrTypesList) ? (hrTypesList as HotelRoomTypeItem[]) : []);
+      setAgePolicies(Array.isArray(policiesList) ? policiesList : []);
     } catch (err) {
       console.error('Failed to load initial dropdown mappings: ', err);
       setSubmitError('Failed to fetch dependencies.');
@@ -83,7 +91,8 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
         setFormData({
           hotelRoomTypeId: editingItem.hotelRoomTypeId?.toString() || '',
           ruleType: editingItem.ruleType || 'EXTRA_PERSON',
-          guestType: editingItem.guestType || '',
+          agePolicyId: editingItem.agePolicyId?.toString() || '',
+          minHours: editingItem.conditions?.min_hours?.toString() || '',
           adjustmentType: editingItem.adjustmentType || 'FIXED',
           adjustmentValue: editingItem.adjustmentValue?.toString() || '',
           startDate: editingItem.startDate || '',
@@ -94,7 +103,8 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
         setFormData({
           hotelRoomTypeId: '',
           ruleType: 'EXTRA_PERSON',
-          guestType: '',
+          agePolicyId: '',
+          minHours: '',
           adjustmentType: 'FIXED',
           adjustmentValue: '',
           startDate: '',
@@ -115,6 +125,14 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
     return `${hotelName} - ${roomTypeName} (ID: ${hrType.id})`;
   };
 
+  // Filter age policies by hotel of the selected room type config
+  const getFilteredAgePolicies = (): HotelAgePolicyResponse[] => {
+    if (!formData.hotelRoomTypeId) return [];
+    const matchedHrt = hotelRoomTypes.find(hrt => hrt.id.toString() === formData.hotelRoomTypeId);
+    if (!matchedHrt) return [];
+    return agePolicies.filter(ap => ap.hotelId === matchedHrt.hotelId);
+  };
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
@@ -126,6 +144,17 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
       newErrors.ruleType = 'Surcharge rule type is required';
     }
 
+    if (formData.ruleType === 'EXTRA_PERSON' && !formData.agePolicyId) {
+      newErrors.agePolicyId = 'Age policy is required for EXTRA_PERSON rules';
+    }
+
+    if ((formData.ruleType === 'EARLY_CHECKIN' || formData.ruleType === 'LATE_CHECKOUT')) {
+      const hrs = parseFloat(formData.minHours);
+      if (isNaN(hrs) || hrs <= 0) {
+        newErrors.minHours = 'Hours value must be a positive number greater than 0';
+      }
+    }
+
     if (!formData.adjustmentType) {
       newErrors.adjustmentType = 'Adjustment type is required';
     }
@@ -133,14 +162,8 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
     const value = parseFloat(formData.adjustmentValue);
     if (isNaN(value)) {
       newErrors.adjustmentValue = 'Adjustment value is required';
-    } else if (formData.guestType === 'INFANT') {
-      if (value < 0) {
-        newErrors.adjustmentValue = 'Adjustment value for INFANT guest type must be 0 or greater';
-      }
-    } else {
-      if (value <= 0) {
-        newErrors.adjustmentValue = 'Adjustment value must be a positive number greater than 0';
-      }
+    } else if (value < 0) {
+      newErrors.adjustmentValue = 'Adjustment value must be 0 or greater';
     }
 
     if (!formData.startDate) {
@@ -166,10 +189,13 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
     setIsLoading(true);
     setSubmitError(null);
 
-    const payload = {
+    const payload: SurchargeRuleCreateRequest | SurchargeRuleUpdateRequest = {
       hotelRoomTypeId: parseInt(formData.hotelRoomTypeId, 10),
       ruleType: formData.ruleType,
-      guestType: formData.guestType || null,
+      agePolicyId: formData.ruleType === 'EXTRA_PERSON' && formData.agePolicyId ? parseInt(formData.agePolicyId, 10) : null,
+      conditions: (formData.ruleType === 'EARLY_CHECKIN' || formData.ruleType === 'LATE_CHECKOUT') && formData.minHours 
+        ? { minHours: parseFloat(formData.minHours) }
+        : null,
       adjustmentType: formData.adjustmentType,
       adjustmentValue: parseFloat(formData.adjustmentValue),
       startDate: formData.startDate,
@@ -201,6 +227,8 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
 
   if (!isOpen) return null;
 
+  const filteredAgePolicies = getFilteredAgePolicies();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -219,7 +247,7 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
           <button 
             type="button"
             onClick={onClose}
-            className="text-neutral-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-red-655"
+            className="text-neutral-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-red-600"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -230,9 +258,9 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* Overlap Error Warning Alert Box */}
           {errors.dateOverlap && (
-            <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded flex items-start space-x-3 shadow-sm animate-shake mb-4">
+            <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded flex items-start space-x-3 shadow-sm mb-4">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 text-xs font-semibold text-red-750">
+              <div className="flex-1 text-xs font-semibold text-red-800">
                 <h5 className="text-sm font-extrabold text-red-800 uppercase tracking-wide">Surcharge Overlap Error</h5>
                 <p className="mt-1 leading-relaxed">{errors.dateOverlap}</p>
               </div>
@@ -241,10 +269,10 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
 
           {/* Standard Submission Error */}
           {submitError && !errors.dateOverlap && (
-            <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded flex items-start space-x-3 shadow-sm animate-fade-in mb-4">
+            <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded flex items-start space-x-3 shadow-sm mb-4">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 text-xs font-semibold text-red-700">
-                <h5 className="text-sm font-bold text-red-800">Operation Error</h5>
+              <div className="flex-1 text-xs font-semibold text-red-800">
+                <h5 className="text-sm font-bold text-red-850">Operation Error</h5>
                 <p className="mt-0.5">{submitError}</p>
               </div>
             </div>
@@ -258,7 +286,7 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
             <select
               id="hotelRoomTypeId"
               value={formData.hotelRoomTypeId}
-              onChange={(e) => setFormData({ ...formData, hotelRoomTypeId: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, hotelRoomTypeId: e.target.value, agePolicyId: '' })}
               className={`w-full px-3 py-2 border rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-600
                 ${errors.hotelRoomTypeId ? 'border-red-600' : 'border-neutral-300'}
               `}
@@ -281,8 +309,8 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
             <select
               id="ruleType"
               value={formData.ruleType}
-              onChange={(e) => setFormData({ ...formData, ruleType: e.target.value })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-650"
+              onChange={(e) => setFormData({ ...formData, ruleType: e.target.value, agePolicyId: '', minHours: '' })}
+              className="w-full px-3 py-2 border border-neutral-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-600"
             >
               <option value="EXTRA_PERSON">EXTRA_PERSON</option>
               <option value="EXTRA_BED">EXTRA_BED</option>
@@ -291,23 +319,55 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
             </select>
           </div>
 
-          {/* Guest Type Selection */}
-          <div>
-            <label htmlFor="guestType" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
-              Guest Type (Optional)
-            </label>
-            <select
-              id="guestType"
-              value={formData.guestType}
-              onChange={(e) => setFormData({ ...formData, guestType: e.target.value as 'ADULT' | 'CHILD' | 'INFANT' | '' })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">All / None</option>
-              <option value="ADULT">ADULT</option>
-              <option value="CHILD">CHILD</option>
-              <option value="INFANT">INFANT</option>
-            </select>
-          </div>
+          {/* Age Policy Selection - Only for EXTRA_PERSON */}
+          {formData.ruleType === 'EXTRA_PERSON' && (
+            <div>
+              <label htmlFor="agePolicyId" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
+                Age Policy Target *
+              </label>
+              <select
+                id="agePolicyId"
+                value={formData.agePolicyId}
+                onChange={(e) => setFormData({ ...formData, agePolicyId: e.target.value })}
+                className={`w-full px-3 py-2 border rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-600
+                  ${errors.agePolicyId ? 'border-red-600' : 'border-neutral-300'}
+                `}
+              >
+                <option value="">Select Age Policy</option>
+                {filteredAgePolicies.map((ap) => (
+                  <option key={ap.id} value={ap.id.toString()}>
+                    {ap.guestType} ({ap.minAge}-{ap.maxAge} years)
+                  </option>
+                ))}
+              </select>
+              {errors.agePolicyId && <p className="text-red-600 text-xs mt-1 font-semibold">{errors.agePolicyId}</p>}
+              {formData.hotelRoomTypeId && filteredAgePolicies.length === 0 && (
+                <p className="text-neutral-500 text-xs mt-1">No active age policies found for this hotel property.</p>
+              )}
+            </div>
+          )}
+
+          {/* Min Hours Condition - Only for EARLY_CHECKIN or LATE_CHECKOUT */}
+          {(formData.ruleType === 'EARLY_CHECKIN' || formData.ruleType === 'LATE_CHECKOUT') && (
+            <div>
+              <label htmlFor="minHours" className="block text-xs font-bold uppercase text-neutral-900 tracking-wider mb-1">
+                Minimum Hours threshold *
+              </label>
+              <input
+                type="number"
+                id="minHours"
+                step="0.1"
+                min="0"
+                value={formData.minHours}
+                onChange={(e) => setFormData({ ...formData, minHours: e.target.value })}
+                className={`w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-600 font-mono
+                  ${errors.minHours ? 'border-red-600' : 'border-neutral-300'}
+                `}
+                placeholder="e.g. 2.5"
+              />
+              {errors.minHours && <p className="text-red-600 text-xs mt-1 font-semibold">{errors.minHours}</p>}
+            </div>
+          )}
 
           {/* Adjustment Type & Value Grid */}
           <div className="grid grid-cols-2 gap-4">
@@ -319,7 +379,7 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
                 id="adjustmentType"
                 value={formData.adjustmentType}
                 onChange={(e) => setFormData({ ...formData, adjustmentType: e.target.value as 'PERCENT' | 'FIXED' })}
-                className="w-full px-3 py-2 border border-neutral-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-650"
+                className="w-full px-3 py-2 border border-neutral-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-600"
               >
                 <option value="PERCENT">PERCENT (%)</option>
                 <option value="FIXED">FIXED (VND)</option>
@@ -383,7 +443,7 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
 
           {/* Date Overlap text label error */}
           {errors.dateOverlap && (
-            <p className="text-red-650 text-xs font-semibold flex items-center space-x-1 mt-1 animate-pulse">
+            <p className="text-red-600 text-xs font-semibold flex items-center space-x-1 mt-1">
               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
               <span>{errors.dateOverlap}</span>
             </p>
@@ -418,7 +478,7 @@ const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({ isOpen, onClose
             <button
               type="submit"
               disabled={isLoading}
-              className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-sm shadow transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 disabled:bg-neutral-400 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-sm shadow transition-colors focus:outline-none focus:ring-2 focus:ring-red-600"
             >
               {isLoading ? 'Saving...' : 'Save Configuration'}
             </button>
